@@ -6,6 +6,17 @@
   {
     "id": 1781592043544,
     "email": "meredith@email.com",
-    "password": "$2b$10$3y9uGFdZXrvy5Sbd2ofFGe/R1ls.2hm/PBGdOAB/V33pPb5/AvXfO"
+    "password": "$2b$10$3y9uGFdZXrvy5Sbd2ofFGe/R1ls.2hm/PBGdOAB/V33pPb5/AvXfO",
+    "nickname": "Meredith",
+    "preferredExercise": "swimming",
+    "funFact": "I once swam across a lake",
+    "song": "Lose Yourself - Eminem",
+    "notificationsEnabled": true,
+    "goalMeters": 20000
+  },
+  {
+    "id": 1781669672011,
+    "email": "river@email.com",
+    "password": "$2b$10$f9OZoFjLcywM.414vePYbORU.e04TQbOCcRRH742zGo1MsoBpF5ee"
   }
 ]
