@@ -639,6 +639,151 @@ app.get('/group-stats', (req, res) => {
     });
 });
 
+app.post('/suggest-event', (req, res) => {
+    if(!req.session.userId) {
+        return res.status(401).json({ message: 'You must be logged in to suggest an event. '});
+    }
+
+    const { groupId, title, date, description } = req.body;
+
+    const memberships = readData('memberships.json');
+    const isMember = memberships.find(membership =>
+        membership.userId === req.session.userId && membership.groupId === groupId);
+    if(!isMember) {
+        return res.status(403).json({ message: 'You are not a member of this group.'});
+    }
+
+    const events = readData('events.json');
+
+    const newEvent = {
+        id: Date.now(),
+        groupId: groupId,
+        suggestedBy: req.session.userId,
+        title: title,
+        date: date,
+        description: description || null,
+        createdAt: new Date().toISOString(),
+        rsvps: [],
+        locations: []
+    };
+
+    events.push(newEvent);
+    writeData('events.json', events);
+
+    res.json({ message: 'Event suggested!', event: newEvent});
+});
+
+app.post('/rsvp', (req, res) => {
+    if(!req.session.userId) {
+        return res.status(401).json({ message: 'You must be logged in to RSVP.'});
+    }
+
+    const { eventId, response } = req.body;
+
+    //.includes() returns true is the value exists in the array, false if not
+    if(!['yes', 'no', 'maybe'].includes(response)) {
+        return res.status(400).json({ message: 'Response must be yes, no or maybe'});
+    }
+
+    const events = readData('events.json');
+
+    const event = events.find(event => event.id === eventId);
+    if(!event) {
+        return res.status(404).json({ message: 'Event not found.'});
+    }
+
+    const memberships = readData('memberships.json');
+    const isMember = memberships.find(membership =>
+        membership.userId === req.session.userId && membership.groupId === event.groupId);
+    if(!isMember){
+        return res.status(403).json({ message: 'You are not a member of this group.' });
+    }
+
+    const existingRsvp = event.rsvps.find(rsvp => rsvp.userId === req.session.userId);
+    if(existingRsvp) {
+        existingRsvp.response = response;
+    } else {
+        event.rsvps.push({ userId: req.session.userId, response: response });
+    }
+
+    writeData('events.json', events);
+
+    res.json({ message: 'RSVP saved!', event: event });
+});
+
+app.post('/suggest-location', (req, res) => {
+    if(!req.session.userId) {
+        return res.status(401).json({ message: 'You must be logged in to suggest a location.' });
+    }
+
+    const { eventId, locationName } = req.body;
+
+    const events = readData('events.json');
+
+    const event = events.find(event => event.id === eventId);
+    if(!event) {
+        return res.status(404).json({message: 'Event not found.' });
+    }
+
+    const memberships = readData('memberships.json');
+    const isMember = memberships.find(membership =>
+        membership.userId === req.session.userId && membership.groupId === event.groupId);
+        if(!isMember) {
+            return res.status(403).json({ message: 'You are not a member of this group.'});
+        }
+
+    const newLocation = {
+        id: Date.now(),
+        name: locationName,
+        suggestedBy: req.session.userId,
+        votes: []
+    };
+
+    event.locations.push(newLocation);
+    writeData('events.json', events);
+
+    res.json({ message: 'Location suggested!', location: newLocation});
+});
+
+app.post('/vote-location', (req, res) => {
+    if(!req.session.userId) {
+        return res.status(401).json({ message: 'You must be logged in to vote.'});
+    }
+    
+    const { eventId, locationId } = req.body;
+
+    const events = readData('events.json');
+
+    const event = events.find(event => event.id === eventId);
+    if(!event) {
+        return res.status(404).json({ message: 'Event not found'});
+    }
+
+    const memberships = readData('memberships.json');
+    const isMember = memberships.find(membership =>
+        membership.userId === req.session.userId && membership.groupId === event.groupId);
+    if(!isMember) {
+        return res.status(403).json({ message: 'You are not a member of this group.'});
+    }
+    
+    const location = event.locations.find(location => location.id === locationId);
+    if(!location) {
+        return res.status(404).json({ message: 'Location not found.'});
+    }
+
+    const alreadyVoted = location.votes.includes(req.session.userId);
+    if(alreadyVoted) {
+        location.votes = location.votes.filter(userId => userId !== req.session.userId);
+        writeData('events.json', events);
+        return res.json({ message: 'Vote removed!', location: location });
+    }
+
+    location.votes.push(req.session.userId);
+    writeData('events.json', events);
+
+    res.json({ message: 'Vote added!', location: location });
+});
+
 /* This actually starts the server and tells it to listen for requests on port 3000 */
 app.listen(PORT, () => {
     console.log(`Server running at http://localhost:${PORT}`);
