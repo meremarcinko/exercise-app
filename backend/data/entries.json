@@ -1,1 +1,26 @@
-[]
+[
+  {
+    "id": 1783622202751,
+    "userId": 1781592043544,
+    "groupId": 1781668003145,
+    "date": "2026-06-22",
+    "exerciseType": "swimming",
+    "meters": 1500,
+    "originalUnit": "meters",
+    "durationSeconds": 2700,
+    "notes": "Felt great today!",
+    "createdAt": "2026-07-09T18:36:42.751Z"
+  },
+  {
+    "id": 1783627962545,
+    "userId": 1781592043544,
+    "groupId": 1781668003145,
+    "date": "2026-07-09",
+    "exerciseType": "swimming",
+    "meters": 1500,
+    "originalUnit": "meters",
+    "durationSeconds": 2700,
+    "notes": "Testing group stats!",
+    "createdAt": "2026-07-09T20:12:42.545Z"
+  }
+]

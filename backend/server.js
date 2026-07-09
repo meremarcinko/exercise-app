@@ -421,6 +421,223 @@ app.put('/update-profile', (req,res) => {
     }});
 });
 
+app.post('/log-entry', (req, res) => {
+    if(!req.session.userId) {
+        return res.status(401).json({ message: 'You must be logged in to log an entry.'});
+    }
+
+    const { groupId, date, exerciseType, distance, unit, durationSeconds, notes } = req.body;
+
+    const memberships = readData('memberships.json');
+    const isMember = memberships.find(membership =>
+        membership.userId === req.session.userId && membership.groupId === groupId);
+        if (!isMember) {
+            return res.status(403).json({ message: 'You are not a member of this group.'});
+        }
+
+        const meters = unit === 'miles' ? distance * 1609 : distance;
+
+        const entries = readData('entries.json');
+
+        const newEntry = {
+            id: Date.now(),
+            userId: req.session.userId,
+            groupId: groupId,
+            date: date,
+            exerciseType: exerciseType,
+            meters: meters,
+            originalUnit: unit,
+            durationSeconds: durationSeconds || null,
+            notes: notes || null,
+            createdAt: new Date().toISOString()
+        };
+
+        entries.push(newEntry);
+        writeData('entries.json', entries);
+
+        res.json({ message: 'Entry logged!', entry: newEntry });
+});
+
+app.get('/my-entries', (req,res) => {
+    if(!req.session.userId) {
+        return res.status(401).json({ message: 'You must be logged in to view your entires.' });
+    }
+
+    //For Get requests, we cant send a request body, so instead we pass data through the URL itself as a query string. The ?groupId= part is the query string, and Express automatically parses it into req.query
+    const { groupId } = req.query;
+
+    const entries = readData('entries.json');
+
+    const myEntries = entries.filter(entry =>
+        entry.userId === req.session.userId && entry.groupId === Number(groupId));
+        //query string values always arrive as strings, so we convert to a number before comparing against the numeric IDs stored in the JSON file
+
+    res.json({ message: 'Here are your entries!', entries: myEntries });
+});
+
+app.get('/my-stats', (req, res) => {
+    if(!req.session.userId) {
+        return res.status(401).json({ message: 'You must be logged in to view your stats.'});
+    }
+
+    const { groupId } = req.query;
+
+    const entries = readData('entries.json');
+    const users = readData('users.json');
+
+    const user = users.find(user => user.id === req.session.userId);
+    if(!user) {
+        return res.status(404).json({ message: 'User not found.' });
+    }
+
+    const myEntries = entries.filter(entry =>
+        entry.userId === req.session.userId && entry.groupId === Number(groupId));
+
+    const now = new Date();
+    const currentMonth = now.getMonth(); //pulls the month (0-11, where 0 is january) and the year out of a date object
+    const currentYear = now.getFullYear();
+
+    const monthlyEntries = myEntries.filter(entry => {
+        const entryDate = new Date(entry.date);
+        return entryDate.getMonth() === currentMonth && entryDate.getFullYear() ===currentYear;
+    });
+
+    //.reduce() goes through an array and accumulates a single value. The 0 at the end is the starting value, and for each entry it adds 'entry.meters' to the running total. its the standard way to sum an array of numbers.
+    const monthlyTotal = monthlyEntries.reduce((total, entry) => total + entry.meters, 0);
+    const allTimeTotal = myEntries.reduce((total, entry) => total + entry.meters, 0);
+
+    const goalMeters = user.goalMeters || 0;
+    const goalProgress = goalMeters > 0 ? Math.round((monthlyTotal / goalMeters) * 100) : null;
+
+    //a Set is like an array but with no duplicates. We use it to collect all unique dates the user has logged entries on, which makes the streak calcumation fast (checking if the date exists in a Set is instant)
+    const entryDates = new Set(myEntries.map(entry => entry.date));
+    
+    let streak = 0;
+    const today = new Date();
+    today.setHours(0,0,0,0);
+
+    let checkDate = new Date(today);
+    let missedOneDay = false;
+
+    while(true) {
+        const dateString = checkDate.toISOString().split('T')[0];
+
+        if(entryDates.has(dateString)) {
+            streak++;
+            missedOneDay = false;
+        }else if(!missedOneDay) {
+            missedOneDay = true;
+        }else{
+            break;
+        }
+
+        checkDate.setDate(checkDate.getDate() - 1);
+    }
+
+    res.json({
+        message: 'Here are your stats!',
+        stats: {
+            monthlyTotal,
+            allTimeTotal,
+            goalMeters,
+            goalProgress,
+            streak
+        }
+    });
+});
+
+app.get('/group-stats', (req, res) => {
+    if(!req.session.userId) {
+        return res.status(401).json({ message: 'You must be logged in to view group stats.' });
+    }
+
+    const { groupId } = req.query;
+
+    const memberships = readData('memberships.json');
+    const entries = readData('entries.json');
+    const users = readData('users.json');
+
+    const isMember = memberships.find(membership =>
+        membership.userId === req.session.userId && membership.groupId === Number(groupId));
+    if(!isMember) {
+        return res.status(403).json({ message: 'You are not a member of this group.'});
+    }
+
+    const groupMemberships = memberships.filter(membership =>
+        membership.groupId === Number(groupId));
+
+    const groupEntries = entries.filter(entry =>
+        entry.groupId === Number(groupId));
+
+    const now = new Date();
+    const currentMonth = now.getMonth();
+    const currentYear = now.getFullYear();
+
+    const monthlyGroupEntries = groupEntries.filter(entry => {
+        const entryDate = new Date(entry.date);
+        return entryDate.getMonth() === currentMonth && entryDate.getFullYear() === currentYear;
+    });
+
+    //helper function defined inside the route
+    function getFairnessScore(entry) {
+        if(entry.exerciseType === 'swimming') {
+            return entry.meters / 500;
+        } else {
+            return entry.meters / 1609;
+        }
+    }
+
+    const leaderboard = groupMemberships.map(membership => {
+        const memberUser = users.find(user => user.id === membership.userId);
+        const memberEntries = monthlyGroupEntries.filter(entry =>
+            entry.userId === membership.userId);
+        const fairnessScore = memberEntries.reduce((total, entry) =>
+        total + getFairnessScore(entry), 0);
+        return {
+            userId: membership.userId,
+            //if a user hasnt set a nickname yet, fall back to show their email (code below)
+            nickname: memberUser ? memberUser.nickname || memberUser.email : 'Unknown',
+            role: membership.role,
+            fairnessScore: Math.round(fairnessScore * 100)/ 100
+        };
+    });
+
+    //sorts the leaderbaord highest to lowest
+    //the sort function returns a negative number when b should come first, which JS '.sort()' uses to order things
+    leaderboard.sort((a, b) => b.fairnessScore - a.fairnessScore);
+    const groupTotal = leaderboard.reduce((total, member) =>
+    total + member.fairnessScore, 0);
+
+    const topScore = leaderboard[0].fairnessScore;
+    const topMembers = leaderboard
+        .filter(member => member.fairnessScore === topScore)
+        .map(member => member.nickname);
+
+    const dayCounts = {}; //an empty object used as a counter. For each entry date, we either start counting at 1 or add 1
+    monthlyGroupEntries.forEach(entry => {
+        dayCounts[entry.date] = (dayCounts[entry.date] || 0) + 1;
+    });
+
+    let mostActiveDay = null;
+    let mostActiveDayCount = 0;
+    Object.entries(dayCounts).forEach(([date, count]) => {
+        if(count > mostActiveDayCount) {
+            mostActiveDay = date;
+            mostActiveDayCount = count;
+        }
+    });
+
+    res.json({
+        message: 'Here are the group stats!',
+        stats: {
+            leaderboard,
+            groupTotal: Math.round(groupTotal * 100) / 100,
+            topMembers,
+            mostActiveDay,
+            mostActiveDayCount
+        }
+    });
+});
 
 /* This actually starts the server and tells it to listen for requests on port 3000 */
 app.listen(PORT, () => {
