@@ -1,14 +1,24 @@
 const express = require('express'); //go grab this package I downloaded and let me use it
+const nodemailer = require('nodemailer');
+require('dotenv').config();
 const { readData, writeData } = require('./dataHelper');
 const bcrypt = require('bcrypt');
 const session = require('express-session');
+
+const transporter = nodemailer.createTransport({
+    service: 'gmail',
+    auth: {
+        user: process.env.EMAIL_USER,
+        pass: process.env.EMAIL_PASS
+    }
+});
 
 const app = express(); //this creates the actual server application, calling express like a funtion creates a new Express app object and we save it in app. App is how you'll build everything, add routes, start the server, etc.
 app.use(express.json()); //"if incoming requests have JSON data in their body, automatically read and parse it for me"
 
 /* turns on session support for your whole app */
 app.use(session({
-    secret: 'replace-this-with-something-random-later', //this is used internally to securely sign the session cookie so it cant be tampered with
+    secret: process.env.SESSION_SECRET, //this is used internally to securely sign the session cookie so it cant be tampered with
     resave: false, //tells it not to re-save the session if nothing changed (a performance best practice)
     saveUninitialized: false //dont create a session until something actually needs to be stored in it (also a best practice, avoids creating empty sessions for ever visitor)
 }));
@@ -784,6 +794,123 @@ app.post('/vote-location', (req, res) => {
     res.json({ message: 'Vote added!', location: location });
 });
 
+app.get('/events', (req, res) => {
+    if (!req.session.userId) {
+        return res.status(401).json({ message: 'You must be logged in to view events.'})
+    }
+    const { groupId } = req.query;
+
+    const memberships = readData('memberships.json');
+    const isMember = memberships.find(membership =>
+        membership.userId === req.session.userId && membership.groupId === Number(groupId));
+    if (!isMember) {
+        return res.status(403).json({ message: 'You are not a member of this group.'});
+    }
+
+    const events = readData('events.json');
+
+    const groupEvents = events.filter(event => event.groupId === Number(groupId));
+
+    res.json({ message: 'Here are the group events!', events: groupEvents });
+});
+
+app.post('/submit-feedback', (req, res) => {
+    if( !req.session.userId) {
+        return res.status (401).json({ message: 'You must be logged in to sumbit feedback.'});
+    }
+
+    const { type, message } = req.body;
+
+    if(!['bug', 'feature', 'general'].includes(type)) {
+        return res.status(400).json({message: 'Type must be bug, feature, or general.' });
+    }
+
+    if(!message || message.trim() === '') {
+        return res.status(400).json({ message: 'Feedback message cannot be empty.'});
+    }
+
+    const feedback = readData('feedback.json');
+    const users = readData('users.json');
+    const user = users.find(user => user.id === req.session.userId);
+    const senderName = user ? (user.nickname || user.email) : 'Unknown user';
+
+    const newFeedback = {
+        id: Date.now(),
+        userId: req.session.userId,
+        type: type,
+        message: message.trim(),
+        submittedAt: new Date().toISOString(),
+        processed: false
+    };
+
+    feedback.push(newFeedback);
+    writeData('feedback.json', feedback);
+
+    const submittedDate = new Date(newFeedback.submittedAt).toLocaleString('en-US', {
+        timeZone: 'America/Los_Angeles',
+        dateStyle: 'full',
+        timeStyle: 'short'
+    });
+
+    const mailOptions = {
+        from: process.env.EMAIL_USER,
+        to: process.env.EMAIL_TO,
+        subject: `New ${type} feedback - Fun Exercise Tracker`,
+        text: `New feedback submitted!\n\nType: ${type}\nFrom: ${senderName}\nDate: ${submittedDate} PST\n\nMessage:\n${message.trim()}`
+    };
+    //sends the email
+    transporter.sendMail(mailOptions, (error, info) =>{
+        if (error) {
+            console.log('Email failed to end:', error);
+        } else {
+            console.log('Email send:', info.response);
+        }
+    });
+    //If the email fails for any reason, the feedback is still saved to feedback.json - the email is a bonus notification, not a critical part of the flow
+    res.json({ message: 'Feedback submitted! Thank you!', feedback: newFeedback});
+
+});
+
+const cron = require('node-cron');
+const fse = require('fs-extra');
+const path = require('path');
+
+// Automated backup system — runs every hour
+cron.schedule('0 */6 * * *', () => {
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+    const sourceDir = path.join(__dirname, 'data');
+    const backupDir = path.join(__dirname, 'backups', `backup-${timestamp}`);
+
+    fse.copy(sourceDir, backupDir)
+        .then(() => {
+            console.log(`Backup created: backup-${timestamp}`);
+            cleanOldBackups();
+        })
+        .catch(error => {
+            console.log('Backup failed:', error);
+        });
+});
+
+function cleanOldBackups() {
+    const backupsDir = path.join(__dirname, 'backups');
+    
+    fse.ensureDir(backupsDir)
+        .then(() => fse.readdir(backupsDir))
+        .then(folders => {
+            folders.sort();
+            const maxBackups = 28;
+            if (folders.length > maxBackups) {
+                const toDelete = folders.slice(0, folders.length - maxBackups);
+                toDelete.forEach(folder => {
+                    fse.remove(path.join(backupsDir, folder));
+                });
+                console.log(`Cleaned up ${toDelete.length} old backups`);
+            }
+        })
+        .catch(error => {
+            console.log('Cleanup failed:', error);
+        });
+}
 /* This actually starts the server and tells it to listen for requests on port 3000 */
 app.listen(PORT, () => {
     console.log(`Server running at http://localhost:${PORT}`);

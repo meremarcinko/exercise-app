@@ -1,0 +1,25 @@
+[
+  {
+    "id": 1783629606928,
+    "groupId": 1781668003145,
+    "suggestedBy": 1781592043544,
+    "title": "Drinks this Saturday!",
+    "date": "2026-07-12",
+    "description": "Anyone free Saturday evening?",
+    "createdAt": "2026-07-09T20:40:06.928Z",
+    "rsvps": [
+      {
+        "userId": 1781592043544,
+        "response": "yes"
+      }
+    ],
+    "locations": [
+      {
+        "id": 1783632603342,
+        "name": "Civic",
+        "suggestedBy": 1781592043544,
+        "votes": []
+      }
+    ]
+  }
+]
