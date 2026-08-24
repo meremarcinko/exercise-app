@@ -1,18 +1,34 @@
-const fs = require('fs'); //Node's built in file systme tool; lets computer read and write files on computer
-const path = require('path'); //a built in helper for building file path correctly (so it works on every type of computer)
+const fs = require('fs');
+const path = require('path');
 
-/* opens a JSON file, reads its raw text, and converts it into a usable JavaScript array/object */
+// Write queue — prevents concurrent writes from overwriting each other
+const writeQueues = {};
+
 function readData(filename) {
     const filePath = path.join(__dirname, 'data', filename);
-    const rawData = fs.readFileSync(filePath, 'utf-8');
-    return JSON.parse(rawData);
+    try {
+        const rawData = fs.readFileSync(filePath, 'utf-8');
+        return JSON.parse(rawData);
+    } catch (error) {
+        if (error instanceof SyntaxError) {
+            console.log(`Data file corrupted: ${filename}. Restore from backup.`);
+            throw new Error(`Data file ${filename} is corrupted.`);
+        }
+        throw error;
+    }
 }
 
-/* takes JavaScript data and converts it back into JSON text with stringify, then saves it to the file. The null, 2 part just makes the saved file nicely formatted/indented instead of one long line */
- function writeData(filename, data) {
-    const filePath = path.join(__dirname, 'data', filename);
-    fs.writeFileSync(filePath, JSON.stringify(data, null, 2));
- }
+function writeData(filename, data) {
+    if (!writeQueues[filename]) {
+        writeQueues[filename] = Promise.resolve();
+    }
 
- /* this makes these two functions available to other files, like the server file, so they can use them by importing this file */
- module.exports = { readData, writeData };
+    writeQueues[filename] = writeQueues[filename].then(() => {
+        const filePath = path.join(__dirname, 'data', filename);
+        fs.writeFileSync(filePath, JSON.stringify(data, null, 2));
+    });
+
+    return writeQueues[filename];
+}
+
+module.exports = { readData, writeData };
