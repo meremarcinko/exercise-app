@@ -1,0 +1,249 @@
+/*============================================
+        RESET & BASE
+============================================*/
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+body {
+    font-family: system-ui, -apple-system, sans-serif;
+    background: #071e2e;
+    min-height: 100vh;
+    overflow-x: hidden;
+    color: #e0f4ff;
+}
+
+/*=====================================
+        OCEAN BACKGROUND
+=====================================*/
+
+.ocean-bg {
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: 0;
+    overflow: hidden;
+}
+
+/* Light Rays */
+.ray {
+    position: absolute;
+    top: 0;
+    width: 2px;
+    height: 70vh;
+    background: linear-gradient(to bottom, rgba(100,210,255,0.2), transparent);
+    transform-origin: top center;
+    transform: rotate(-5deg);
+    animation: shimmer 4s ease-in-out infinite;
+}
+
+@keyframes shimmer {
+    0%, 100% { opacity: 0.1; }
+    50% { opacity: 0.25; }
+}
+
+/* Bubbles */
+.bubble {
+    position: absolute;
+    bottom: 60px;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    border: 1px solid rgba(150, 220, 255, 0.35);
+    animation: rise 8s linear infinite;
+}
+
+@keyframes rise {
+    0% { transform: translateY(0); opacity: 0.4; }
+    100% { transform: translateY(-100vh); opacity: 0; }
+}
+
+/* Seaweed */
+.weed {
+    position: absolute;
+    bottom: 0;
+    width: 8px;
+    height: 60px;
+    background: #0d3a20;
+    border-radius: 4px 4px 0 0;
+    transform-origin: bottom center;
+    animation: sway 3.5s ease-in-out infinite;
+}
+
+@keyframes sway {
+    0%, 100% { transform: rotate(-8deg); }
+    50% { transform: rotate(8deg); }
+}
+
+/* Seafloor */
+.seafloor {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 40px;
+    background: linear-gradient(to top, #0d2a18, #0a2015);
+}
+
+/*====================================
+        NAV
+====================================*/
+.nav {
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    background: rgba(4, 14, 24, 0.88);
+    border-bottom: 1px solid rgba(100, 200, 255, 0.1);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+}
+
+.nav-inner {
+    max-width: 1280px;
+    margin: 0 auto;
+    padding: 0 24px;
+    height: 60px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.nav-logo {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    cursor: pointer;
+}
+
+.nav-logo-dot {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: rgba(56, 189, 248, 0.15);
+    border: 1px solid rgba(56, 189, 248, 0.35);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+}
+
+.nav-logo-text {
+    font-size: 16px;
+    font-weight: 700;
+    color: #7dd4f8;
+}
+
+.nav-links {
+    display: flex;
+    gap: 6px;
+}
+
+.nav-link {
+    padding: 7px 14px;
+    border-radius: 8px;
+    font-size: 13px;
+    color: rgba(125, 212, 248, 0.6);
+    cursor: pointer;
+    transition: all 0.15s;
+}
+
+.nav-link:hover, .nav-link.active {
+    background: rgba(56, 189, 248, 0.15);
+    color: #7dd4f8;
+}
+
+.nav-right {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.nav-name {
+    font-size: 13px;
+    color: rgba(125, 212, 248, 0.7);
+}
+
+.nav-avatar {
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    background: rgba(251, 191, 36, 0.25);
+    border: 1px solid rgba(251, 191, 36, 0.4);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    font-weight: 600;
+    color: #fbbf24;
+    cursor: pointer;
+}
+
+.log-btn {
+    background: rgba(56, 189, 248, 0.2);
+    border: 1px solid rgba(56, 189, 248, 0.35);
+    color: #7dd4f8;
+    border-radius: 10px;
+    padding: 8px 18px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.15s;
+    font-family: inherit;
+}
+
+.log-btn:hover {
+    background: rgba(56, 189, 248, 0.3)
+}
+
+/*======================================
+        MAIN CONTENT
+======================================*/
+
+.main-content {
+    position: relative;
+    z-index: 10;
+    max-width: 1280px;
+    margin: 0 auto;
+    padding: 32px 24px 80px;
+}
+
+.placeholder {
+    color: rgba(125, 212, 248, 0.35);
+    font-size: 18px;
+    text-align: center;
+    margin-top: 100px;
+}
+
+/*==========================================
+        GLASS CARDS
+===========================================*/
+.glass {
+    background: rgba(8, 28, 45, 0.72);
+    border: 1px solid rgba(100, 200, 255, 0.14);
+    border-radius: 16px;
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    position: relative;
+    overflow: hidden;
+}
+
+.glass::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(135deg, rgba(100, 200, 255, 0.05), transparent);
+    pointer-events: none;
+    border-radius: 16px;
+}
+
+/*=========================================
+        ANIMATIONS
+==========================================*/
+
+@media (prefers-reduced-motion: reduce) {
+    .ray, .bubble, .weed {
+        animation: none;
+    }
+}
